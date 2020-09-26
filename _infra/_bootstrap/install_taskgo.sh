@@ -12,8 +12,4 @@ pushd /tmp
     rm -rf task_linux_amd64.tar.gz
 popd
 
-# echo install zsh completions
-# COMPLETIONS_DIR=/usr/local/share/zsh/site-functions/
-# mkdir -p "${COMPLETIONS_DIR}"
-# curl https://raw.githubusercontent.com/go-task/task/master/completion/zsh/_task \
-# -o "${COMPLETIONS_DIR}/_task"
+

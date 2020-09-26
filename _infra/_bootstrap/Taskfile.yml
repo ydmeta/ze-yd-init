@@ -26,9 +26,40 @@ tasks:
       - sed -i 's/.*ZSH_THEME=.*/ZSH_THEME="bureau"/' ~/.zshrc
       - sed -i 's/.*DISABLE_UPDATE_PROMPT=.*/DISABLE_UPDATE_PROMPT=true/' ~/.zshrc
       - sed -i 's/.*DISABLE_AUTO_UPDATE=.*/DISABLE_AUTO_UPDATE=true/' ~/.zshrc
+
+  install-task-zsh-completions:
+    desc: "Install zshell completions for task"
+    env: 
+      COMPLETIONS_DIR: /usr/local/share/zsh/site-functions
+    cmds:
+      - echo install zsh completions
+      - |
+        mkdir -p "${COMPLETIONS_DIR}" \
+        && curl https://raw.githubusercontent.com/go-task/task/master/completion/zsh/_task \
+        -o "${COMPLETIONS_DIR}/_task"
       
   install-zsh-full:
     desc: "install preconfigured zsh and oh-my-zsh from github"
     cmds:
      - task: install-zsh-base
      - task: config-zsh
+     - task: install-task-zsh-completions
+
+  install-docker:
+    desc: "install docker"
+    from_url: https://phoenixnap.com/kb/how-to-install-docker-on-ubuntu-18-04
+    cmds:
+    - |
+      sudo apt-get update \
+      && sudo apt-get install -y \
+         apt-transport-https \
+         ca-certificates \
+         curl \
+         software-properties-common
+    - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+    - sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu  $(lsb_release -cs)  stable"
+    - |
+      sudo apt-get update \
+      && sudo apt-get install -y docker-ce \
+      && sudo apt-cache madison docker-ce
+
