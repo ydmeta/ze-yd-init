@@ -6,7 +6,7 @@ version: '3'
 
 args:
   reposet__parallel:
-    desc: limit parallelisation to specific expression
+    desc: limit parallelisation to specific expression  
     examples:
       - 4
   reposet__conf_map:
