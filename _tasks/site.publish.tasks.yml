@@ -1,0 +1,159 @@
+#!/usr/local/bin/task --taskfile
+# https://taskfile.dev
+
+version: '3'
+# md
+# # mxp-mkdocs-publisher.yml
+#
+# > Tasker Drop-In executable [Download Link](./mxp-mkdocs-publisher.yml)
+#
+
+# ## List Available Actions
+#
+# > `./mxp-mkdocs-publisher.yml -l`
+#
+# ???+ note "output"
+#      ```bash
+#      task: Available tasks for this project:
+#      * info:         shows settings
+#      ```
+#
+#
+# > File Content: `mxp-mkdocs-publisher.yml`
+#
+#
+# ??? note "Click to Open: File Content"
+#     ```yaml
+#     --8<--
+#     mxp-mkdocs-publisher.yml
+#     --8<--
+#     ```
+#
+#     ```
+# ## Variables
+#
+vars:
+# `section`
+#
+# > `tasker related reflection variables`
+#
+# ```yaml
+  _taskfile_name_: mxp-mkdocs-publisher.yml
+  _taskfile_: "{{._taskfile_name_}}"
+  _self_opt_: "-t {{ ._taskfile_ }}"
+  _api_version_: 2021.07.17
+  _api_kind_: mxk:mxp-mkdocs-publisher.yml
+#
+#
+# > `Parameters and defaults`
+#
+# ```yaml
+  PROJECT_NAME: >-
+     $( cat ./version/project_name.txt 2> /dev/null
+     || echo 'default_project' | tail -n 1 | cut -d' ' -f1 )
+
+  VERSION_PREFIX: >-
+    $( cat ./version/version_prefix.txt 2>/dev/null
+    || echo '0.0.0' | tail -n 1 | cut -d' ' -f1)
+
+  branch_name_orig: >-
+    $( git symbolic-ref --short HEAD 2> /dev/null
+    || echo 'a-branch' | tail -n 1 | cut -d' ' -f1 )
+
+  MKDOCS_LOCAL_BUILD_DIR: __localbuild__
+  CONTOUR_PROD_PUBLISH_REMOTE_PREFIX_S3: "aws3:base-com-url-http/docs/"
+  CONTOUR_PROD_PUBLISH_REMOTE_PREFIX_HTTP: "http://base-com-url/docs/"
+
+  CONTOUR_DEV_PUBLISH_REMOTE_PREFIX_FS: "/tmp/"
+  CONTOUR: dev
+  PUBLISH_REMOTE_PREFIX_S3: >-
+    {{ if eq .CONTOUR  "prod"
+    }}{{.CONTOUR_PROD_PUBLISH_REMOTE_PREFIX_S3}}{{
+    else}}{{.CONTOUR_DEV_PUBLISH_REMOTE_PREFIX_FS}}{{end}}
+  PUBLISH_REMOTE_PREFIX_HTTP: >-
+    {{ if eq .CONTOUR  "prod"
+    }}{{.CONTOUR_PROD_PUBLISH_REMOTE_PREFIX_HTTP}}{{
+    else}}{{.CONTOUR_DEV_PUBLISH_REMOTE_PREFIX_FS}}{{end}}
+# ```
+#
+# > `Calculated`
+
+# ```yaml
+  PUBLISH_SUFFIX_DEST: >-
+    {{.PROJECT_NAME}}/{{.branch_name_orig}}/{{.VERSION_PREFIX}}
+  MKDOCS_REMOTE_PUBLISH_DEST_S3: >-
+    {{.PUBLISH_REMOTE_PREFIX_S3}}{{.PUBLISH_SUFFIX_DEST}}
+  MKDOCS_REMOTE_PUBLISH_DEST_HTTP: >-
+    {{.PUBLISH_REMOTE_PREFIX_HTTP}}{{.PUBLISH_SUFFIX_DEST}}
+# ```
+# /md
+tasks:
+  default:
+    cmds:
+      - echo task -l {{._self_opt_}}
+    silent: true
+# ## Actions
+#
+# ### `info`
+#
+# > `./mxp-mkdocs-publisher.yml info`
+#
+# ### `publish-docs`
+#
+# ```yaml
+  publish-docs:
+    desc: use --force. Publish docs to server {{.MKDOCS_REMOTE_PUBLISH_DEST_HTTP}}
+    cmds:
+      - |-
+        rclone -v copy \
+        {{.MKDOCS_LOCAL_BUILD_DIR}} \
+        {{.MKDOCS_REMOTE_PUBLISH_DEST_S3}}
+      - |-
+        rclone -v copy \
+        {{.MKDOCS_REMOTE_PUBLISH_DEST_S3}} \
+        $(dirname {{.MKDOCS_REMOTE_PUBLISH_DEST_S3}})/latest
+      - |-
+        echo -E '
+        MKDOCS_REMOTE_PUBLISH_DEST_S3={{.MKDOCS_REMOTE_PUBLISH_DEST_S3}}
+        MKDOCS_REMOTE_PUBLISH_DEST_HTTP={{.MKDOCS_REMOTE_PUBLISH_DEST_HTTP}}
+        '
+    status:
+      - true
+
+  check-deps:
+    desc: check executable dependencies
+    cmds:
+      - echo "check git executable exist"
+      - git --version
+      - echo "check rclone executable exist"
+      - rclone --version
+      - echo "check rclone.conf is configured with remote"
+      - rclone lsd {{.PUBLISH_REMOTE_PREFIX_S3}} | tail -n 2
+# ```
+# /md
+
+  info:
+    desc: shows settings
+    cmds:
+      - |-
+        echo -E '
+        === {{._taskfile_name_}} ===
+
+        # --- settings ---
+        MKDOCS_LOCAL_BUILD_DIR: {{.MKDOCS_LOCAL_BUILD_DIR}}
+        MKDOCS_REMOTE_PUBLISH_DEST_S3={{.MKDOCS_REMOTE_PUBLISH_DEST_S3}}
+        PUBLISH_PREFIX_HTTP={{.PUBLISH_PREFIX_HTTP}}
+        MKDOCS_REMOTE_PUBLISH_DEST_HTTP={{.MKDOCS_REMOTE_PUBLISH_DEST_HTTP}}
+
+        # --- parameters ---
+        PROJECT_NAME={{.PROJECT_NAME}}
+        VERSION_PREFIX={{.VERSION_PREFIX}}
+        MKDOCS_LOCAL_BUILD_DIR={{.MKDOCS_LOCAL_BUILD_DIR}}
+
+        # --- usage ---
+        "show this info":
+          - ./mxp-mkdocs-publisher.yml info
+        "publish site":
+          - ./mxp-mkdocs-publisher.yml publish-docs
+        '
+    silent: true
