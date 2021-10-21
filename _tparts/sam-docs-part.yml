@@ -1,0 +1,121 @@
+# https://taskfile.dev
+version: "3"
+
+# md
+# # TaskPart: Documentation
+#
+# ## About
+#
+# Documentation tasks consist of builder and publisher parts
+# we use Conda Environment Binding for origin tasks of builder
+# and taskapi file bindings for both builder and publisher
+#
+# ## Install
+#
+#
+#
+# /md
+
+vars:
+# md
+# ## Settings
+#
+# ```yaml
+  # MXP__VERSION__PROJECT_NAME: "$( yq read version/project_name.txt )"
+  # MXP__VERSION__VERSION_PREFIX: "$( yq read version/version_prefix.txt )"
+
+  MXP__MKDOCS_BUILDER__LOCALBUILD_SITE_DIR_ABS: '$(realpath -m {{ default "__localbuild__/docs/site" .MXP__MKDOCS_BUILDER__LOCALBUILD_SITE_DIR}} )'
+
+  MKDOCS_BUILDER__ENV_NAME_CURVENV: "$( echo ${CONDA_DEFAULT_ENV} )"
+  MKDOCS_BUILDER__ENV_NAME_SELECED: '{{ if .MKDOCS_BUILDER__ENV_NAME}}{{.MKDOCS_BUILDER__ENV_NAME}}{{else}}{{.MKDOCS_BUILDER__ENV_NAME_CURVENV}}{{end}}'
+
+  MXP_MKDDOC_BUILDER__TASKLIB_PATH_ABS: "$( realpath -m {{.MXP_MKDDOC_BUILDER__TASKLIB_PATH}} )"
+  MKDDOC_BUILDER__TASKER_PATH: "{{.MXP_MKDDOC_BUILDER__TASKLIB_PATH_ABS}}/_tools/mxp-mkdocs-builder.yml"
+  MKDOCS_PUBLISHER__TASKER_PATH: "{{.MXP_MKDDOC_BUILDER__TASKLIB_PATH_ABS}}/_tools/mxp-mkdocs-publisher.yml"
+  MXP__branch_name_orig: >-
+    $( git symbolic-ref --short HEAD 2> /dev/null || echo 'a-branch' | tail -n 1 | cut -d' ' -f1 )
+
+# ```
+# /md
+
+tasks:
+# md
+# ## Documentation Tasks
+#
+# ### Documentation Build Tasks
+#
+# ```yaml
+  serve:
+    desc: shortcut for serve/docs-live
+    cmds: [{task: serve/docs-live}]
+
+  build:
+    desc: shortcut for build/docs-live
+    cmds: [{task: build/docs-site}]
+
+  install-deps-here:
+    desc: shortcut for install/docs-deps
+    cmds: [{task: install/docs-deps}]
+
+  ./within_mkdocs_build_env: &_within_mkdocs_build_env
+    cmds:
+      - |-
+        echo "MKDOCS_BUILDER__ENV_NAME={{.MKDOCS_BUILDER__ENV_NAME}}"
+        echo "MKDOCS_BUILDER__ENV_NAME_CURVENV={{.MKDOCS_BUILDER__ENV_NAME_CURVENV}}"
+        bash --login -c '
+        conda activate {{.MKDOCS_BUILDER__ENV_NAME_SELECED}}
+          task -t {{.MKDDOC_BUILDER__TASKER_PATH}} {{.task}} source_root=$(realpath .)
+        '
+
+  install/docs-deps:
+    desc: install mkdocs dependencies in current venv
+    <<: *_within_mkdocs_build_env
+    vars: {task: install-here}
+
+  serve/docs-live:
+    desc: serve documentation from source
+    <<: *_within_mkdocs_build_env
+    vars: {task: serve-source}
+
+  serve/docs-site:
+    desc: serve built site via http server
+    <<: *_within_mkdocs_build_env
+    vars: {task: serve-site}
+
+  build/docs-site:
+    desc: build documentation site
+    <<: *_within_mkdocs_build_env
+    vars: {task: build-site}
+
+# ```
+#
+# ### Documentation Publish Tasks
+#
+# ```yaml
+  ./within_mkdocs_publish_env: &_within_mkdocs_publish_env
+    cmds:
+      - |-
+        CONTUR=${CONTUR:-{{.CONTUR}}}
+        task -t {{.MKDOCS_PUBLISHER__TASKER_PATH}} \
+        {{.task}} \
+        PROJECT_NAME={{.MXP__VERSION__PROJECT_NAME}} \
+        VERSION_PREFIX={{.MXP__VERSION__VERSION_PREFIX}} \
+        branch_name_orig={{.MXP__branch_name_orig}} \
+        MKDOCS_LOCAL_BUILD_DIR={{.MXP__MKDOCS_BUILDER__LOCALBUILD_SITE_DIR_ABS}} \
+        CONTOUR=${CONTUR} {{._tail}}
+
+  publish/docs-site:
+    desc: >-
+      Upload docs to server. flag --force is required
+      variable CONTUR is required on of [dev,prod]
+    <<: *_within_mkdocs_publish_env
+    args:
+      CONTUR: choose contur dev-local, stage, prod
+    vars:
+      task: publish-docs
+      _tail: --force
+    status:
+      - true
+# ```
+#
+# /md
